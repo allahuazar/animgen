@@ -1,22 +1,17 @@
 [project]
-name = "wrappers"
-version = "0.2.0"
-description = "Animgen — AI-powered lesson animation generator"
+name = "animgen"
+version = "0.4.0"
+description = "Animgen — AI-powered Manim animation generator"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.115.0",
-    "groq>=0.20.0",
     "manim>=0.20.1",
-    "pymupdf4llm>=1.27.2.3",
-    "pydantic>=2.0",
+    "openai>=1.0.0",
+    "python-dotenv>=1.0.0",
     "python-multipart>=0.0.18",
-    "typst>=0.14.9",
     "uvicorn[standard]>=0.34.0",
 ]
-
-[dependency-groups]
-dev = []
 
 [project.scripts]
 animgen-api = "animgen.api:app"

@@ -1,20 +1,19 @@
 # Animgen
 
-Minimal FastAPI + React frontend for turning textbook content into lesson assets.
+AI-powered Manim animation generator. Enter a prompt like "Animate solving x + 5 = 12 for Class 8 students" and Animgen uses Groq to plan, generate, and render a Manim animation video.
 
 ## Architecture
 
-```text
-PDF textbook
-  → PyMuPDF4LLM (markdown extraction)
-    → lesson JSON (structured glue)
-      → Typst (worksheet PNG)
-      → Manim (animation video)
+```
+User prompt
+  → Router LLM (classifies intent, generates search queries, scene plan)
+  → Local docs search (keyword match on docs_rag/manim/)
+  → Codegen LLM (generates Manim Python code)
+  → Manim renderer (runs manim -ql)
+  → MP4 video
 ```
 
-The lesson JSON is the shared data structure — edit it once in the UI, render both formats.
-
-## Quick start
+## Setup
 
 ```bash
 uv sync
@@ -26,83 +25,75 @@ Install Manim system deps (Arch):
 sudo pacman -S ffmpeg cairo pango texlive-bin texlive-basic texlive-latex texlive-latexrecommended texlive-fontsrecommended texlive-latexextra dvisvgm
 ```
 
-### Backend
+## Environment
 
-```bash
-uv run uvicorn src.animgen.api:app --reload --port 8000
+Copy `.env.example` to `.env` and set three Groq API keys (can all be the same key):
+
+```
+GROQ_ROUTER_API_KEY=gsk_...
+GROQ_MANIM_API_KEY=gsk_...
+GROQ_REPAIR_API_KEY=gsk_...
+GROQ_ROUTER_MODEL=openai/gpt-oss-20b
+GROQ_MANIM_MODEL=qwen-2.5-coder-32b
+GROQ_REPAIR_MODEL=openai/gpt-oss-20b
 ```
 
-### Frontend (dev mode)
+## Run backend
 
 ```bash
-cd frontend && npm run dev
+uv run uvicorn animgen.api:app --reload --port 8000
+```
+
+## Run frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
 Open `http://localhost:5173`.
 
-### Production (single server)
+## Workflow
 
-```bash
-cd frontend && npm run build
-uv run uvicorn src.animgen.api:app --port 8000
-```
-
-Open `http://localhost:8000`.
+1. Enter a prompt (e.g. "Animate solving x + 5 = 12 for Class 8 students")
+2. Click **Generate + Render** to run the full pipeline
+3. Or step through: Route → Search Docs → Generate Code → Render
 
 ## API
 
-| Method | Path | What it does |
+| Method | Path | Description |
 |--------|------|-------------|
 | GET | `/health` | Health check |
-| POST | `/upload-pdf` | Upload PDF → extract markdown |
-| GET | `/markdown` | List / retrieve markdown files |
-| POST | `/lesson-json` | Validate and save lesson JSON |
-| POST | `/render/typst` | Lesson JSON → Typst source + PNG |
-| POST | `/render/manim` | Lesson JSON → Manim scene + MP4 |
-| GET | `/files` | List all generated files |
+| POST | `/route` | Router LLM → intent + search queries + scene plan |
+| POST | `/search-manim-docs` | Keyword search on `docs_rag/manim/` |
+| POST | `/generate-manim` | Route + search + generate Manim code |
+| POST | `/render-manim` | Render `output/generated_scene.py` to MP4 |
+| POST | `/generate-and-render-manim` | Full pipeline + auto-repair on failure |
+| GET | `/files` | List generated files |
 
 ## Project structure
 
-```text
+```
 ├── src/animgen/
 │   ├── api.py              # FastAPI server
-│   ├── models.py           # Pydantic Lesson model
-│   ├── pdf_to_llm.py       # PDF → markdown (PyMuPDF4LLM)
-│   ├── typst_renderer.py   # Lesson → Typst PNG
-│   └── manim_renderer.py   # Lesson → Manim video
+│   ├── groq_clients.py     # OpenAI client per role
+│   ├── router.py           # Router LLM
+│   ├── manim_docs_search.py # Keyword docs search
+│   ├── manim_codegen.py    # Code generation + repair
+│   └── manim_runner.py     # Manim CLI wrapper
+├── docs_rag/manim/         # Local Manim reference docs
+├── output/                 # Generated .py files
+├── media/                  # Rendered MP4 videos
 ├── frontend/               # Vite React SPA
-│   ├── src/App.jsx         # Main UI component
-│   └── vite.config.js      # Dev proxy → :8000
-├── input/                  # Uploaded PDFs
-├── parsed/                 # Extracted markdown + lesson JSON
-├── output/                 # Typst PNGs, generated scene files
-├── media/                  # Manim videos
 ├── pyproject.toml
-└── README.md
+└── .env.example
 ```
 
-## How it works
+## Limitations
 
-1. **Upload a PDF** — the server extracts markdown via PyMuPDF4LLM and saves it to `parsed/`.
-2. **Preview the markdown** — select any parsed file in the UI.
-3. **Edit the lesson JSON** — the default Photosynthesis example is pre-loaded. Tweak titles, key points, formulas, and quiz questions.
-4. **Render Typst** — the server builds a Typst document from the lesson JSON and compiles it to PNG (via `typst-py`). The result appears inline.
-5. **Render Manim** — the server generates a Manim Python scene from the lesson JSON and runs the CLI to produce an MP4. The video appears inline.
-6. **Browse files** — the Files tab lists everything in `input/`, `parsed/`, `output/`, and `media/` with direct links.
-
-All generation happens server-side. The frontend only sends/receives JSON.
-
-## Notes
-
-Generated files are git-ignored:
-
-```text
-input/
-parsed/
-rag/
-output/
-media/
-typst-output/
-```
-
-Keep textbooks and generated content out of the repository unless you have permission to publish them.
+- **Manim-only MVP** — no Typst, no PDF extraction, no textbook RAG
+- **Local docs search** — simple keyword/regex matching, no embeddings
+- **Generated code is validated** but still experimental — long or complex animations may fail
+- **Groq rate limits** — free tier is ~8000 TPM; upgrade for heavier use
+- **Repair loop** — if render fails, the repair LLM gets one attempt to fix the code

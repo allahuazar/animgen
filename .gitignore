@@ -1,27 +1,21 @@
 .venv/
 __pycache__/
 *.pyc
+src/*.egg-info/
 
 # Generated files
-media/
 output/*
-parsed/*
-rag/*
-
-# Keep folders
 !output/.gitkeep
-!parsed/.gitkeep
-!rag/.gitkeep
 
-# Input textbooks / private PDFs
-input/*
-!input/.gitkeep
+media/*
+!media/.gitkeep
 
 # Frontend build
 frontend/dist/
+frontend/node_modules/
 
-# Typst generated
-typst-output/
+# Environment variables
+.env
 
 # OS/editor
 .DS_Store
