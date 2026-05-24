@@ -1,9 +1,11 @@
 [project]
-name = "typst-frontend"
+name = "wrappers"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "manim>=0.20.1",
+    "pymupdf4llm>=1.27.2.3",
     "typst>=0.14.9",
 ]
