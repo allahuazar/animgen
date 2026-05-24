@@ -30,7 +30,7 @@ function App() {
   async function doSearch() {
     setLoading('search'); setError(null); setSnippets(null)
     try {
-      const r = await fetch('/search-manim-docs', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({queries: [prompt]}) })
+      const r = await fetch('/search-docs', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({queries: [prompt]}) })
       const d = await r.json()
       d.ok ? setSnippets(d) : setError(d.error)
     } catch { setError('Search request failed') }
@@ -62,7 +62,7 @@ function App() {
   async function doFull() {
     setLoading('full'); setError(null); setRouterResult(null); setSnippets(null); setGeneratedCode(null); setWarnings(null); setRenderResult(null); setVideoUrl(null); setRepaired(null)
     try {
-      const r = await fetch('/generate-and-render-manim', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({prompt}) })
+      const r = await fetch('/generate-and-render', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({prompt}) })
       const d = await r.json()
       if (d.ok) {
         setRouterResult(d.router)

@@ -1,7 +1,7 @@
 import re
 
+from .docs_search import format_snippets
 from .groq_clients import get_manim_client, get_repair_client
-from .manim_docs_search import format_docs_snippets
 
 CODEGEN_SYSTEM_PROMPT = """You are a Manim Community Edition v0.20.1 code generator.
 Use the provided docs snippets as the source of truth.
@@ -48,30 +48,8 @@ Avoid large manual shifts — never use shifts greater than 4 units.
 Avoid manual coordinates unless necessary for positioning.
 Prefer ReplacementTransform(old, new) over Transform(old.copy(), new)."""
 
-REJECTED_PATTERNS = [
-    r"\bimport\s+os\b",
-    r"\bimport\s+sys\b",
-    r"\bimport\s+subprocess\b",
-    r"from\s+pathlib\b",
-    r"\bimport\s+pathlib\b",
-    r"\bopen\s*\(",
-    r"\bexec\s*\(",
-    r"\beval\s*\(",
-    r"\bimport\s+requests\b",
-    r"\bimport\s+socket\b",
-    r"\bimport\s+shutil\b",
-    r"\b__import__\b",
-    r"\binput\s*\(",
-]
 
-REQUIRED_PATTERNS = [
-    r"from\s+manim\s+import\s+\*",
-    r"class\s+GeneratedScene\s*\(\s*Scene\s*\)\s*:",
-    r"def\s+fit_to_screen\s*\(",
-]
-
-
-def _extract_code(text: str) -> str:
+def strip_markdown_fences(text: str) -> str:
     text = text.strip()
     m = re.search(r"```(?:python)?\s*\n(.*?)```", text, re.DOTALL)
     if m:
@@ -79,47 +57,9 @@ def _extract_code(text: str) -> str:
     return text
 
 
-def validate_manim_code(code: str) -> None:
-    for pattern in REJECTED_PATTERNS:
-        if re.search(pattern, code):
-            raise ValueError(f"Generated Manim code contains rejected pattern: {pattern}")
-    for pattern in REQUIRED_PATTERNS:
-        if not re.search(pattern, code):
-            raise ValueError(f"Generated Manim code missing required pattern: {pattern}")
-
-
-def check_layout_risks(code: str) -> list[str]:
-    warnings = []
-    for m in re.finditer(r'font_size\s*=\s*(\d+)', code):
-        val = int(m.group(1))
-        if val > 56:
-            warnings.append(f"font_size {val} > 56 may go out of viewport")
-    for m in re.finditer(r'NumberLine\([^)]*?length\s*=\s*(\d+(?:\.\d+)?)', code):
-        val = float(m.group(1))
-        if val > 12:
-            warnings.append(f"NumberLine length {val} > 12 may go out of viewport")
-    for m in re.finditer(r'shift\(\s*(RIGHT|LEFT)\s*\*\s*(\d+(?:\.\d+)?)', code):
-        val = float(m.group(2))
-        if val >= 7:
-            warnings.append(f"shift({m.group(1)} * {val}) >= 7 may go out of viewport")
-    for m in re.finditer(r'shift\(\s*(UP|DOWN)\s*\*\s*(\d+(?:\.\d+)?)', code):
-        val = float(m.group(2))
-        if val >= 4:
-            warnings.append(f"shift({m.group(1)} * {val}) >= 4 may go out of viewport")
-    for m in re.finditer(r'x_length\s*=\s*(\d+(?:\.\d+)?)', code):
-        val = float(m.group(1))
-        if val > 12:
-            warnings.append(f"x_length {val} > 12 may go out of viewport")
-    for m in re.finditer(r'y_length\s*=\s*(\d+(?:\.\d+)?)', code):
-        val = float(m.group(1))
-        if val > 8:
-            warnings.append(f"y_length {val} > 8 may go out of viewport")
-    return warnings
-
-
-def generate_manim_code(prompt: str, router_result: dict, docs_snippets: list[dict]) -> str:
+def generate_code(prompt: str, router_result: dict, snippets: list[dict]) -> str:
     client, model = get_manim_client()
-    docs_text = format_docs_snippets(docs_snippets)
+    docs_text = format_snippets(snippets)
     scene_plan = "\n".join(f"- {s}" for s in router_result.get("scene_plan", []))
     user_prompt = f"""Topic: {router_result.get('topic', prompt)}
 
@@ -141,7 +81,7 @@ Generate the complete Manim code.
             temperature=0.5,
             max_tokens=4096,
         )
-    except Exception as e:
+    except Exception:
         completion = client.chat.completions.create(
             model=model,
             messages=[
@@ -152,14 +92,13 @@ Generate the complete Manim code.
             max_tokens=4096,
         )
     raw = completion.choices[0].message.content or ""
-    code = _extract_code(raw)
-    validate_manim_code(code)
+    code = strip_markdown_fences(raw)
     return code
 
 
-def repair_manim_code(prompt: str, bad_code: str, error: str, docs_snippets: list[dict]) -> str:
+def repair_code(prompt: str, bad_code: str, error: str, snippets: list[dict]) -> str:
     client, model = get_repair_client()
-    docs_text = format_docs_snippets(docs_snippets)
+    docs_text = format_snippets(snippets)
     user_prompt = f"""The following Manim code failed to render with this error:
 
 Error:
@@ -205,6 +144,5 @@ Output Python code only. No markdown fences. No explanation.
             max_tokens=4096,
         )
     raw = completion.choices[0].message.content or ""
-    code = _extract_code(raw)
-    validate_manim_code(code)
+    code = strip_markdown_fences(raw)
     return code

@@ -1,9 +1,8 @@
 import os
 
-from dotenv import load_dotenv
 from openai import OpenAI
 
-load_dotenv()
+from . import config
 
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
@@ -19,12 +18,12 @@ def _get_client(api_key_var: str, model_var: str) -> tuple[OpenAI, str]:
 
 
 def get_router_client() -> tuple[OpenAI, str]:
-    return _get_client("GROQ_ROUTER_API_KEY", "GROQ_ROUTER_MODEL")
+    return _get_client(config.GROQ_ROUTER_API_KEY_ENV, config.GROQ_ROUTER_MODEL_ENV)
 
 
 def get_manim_client() -> tuple[OpenAI, str]:
-    return _get_client("GROQ_MANIM_API_KEY", "GROQ_MANIM_MODEL")
+    return _get_client(config.GROQ_MANIM_API_KEY_ENV, config.GROQ_MANIM_MODEL_ENV)
 
 
 def get_repair_client() -> tuple[OpenAI, str]:
-    return _get_client("GROQ_REPAIR_API_KEY", "GROQ_REPAIR_MODEL")
+    return _get_client(config.GROQ_REPAIR_API_KEY_ENV, config.GROQ_REPAIR_MODEL_ENV)

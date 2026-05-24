@@ -1,31 +1,27 @@
 import subprocess
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent.parent
-OUTPUT_DIR = ROOT / "output"
-MEDIA_DIR = ROOT / "media"
-
-SCENE_CLASS = "GeneratedScene"
-SCENE_FILE = OUTPUT_DIR / "generated_scene.py"
+from . import config
 
 
-def find_video() -> str | None:
-    if not MEDIA_DIR.exists():
+def find_latest_video() -> str | None:
+    if not config.MEDIA_DIR.exists():
         return None
-    candidates = sorted(MEDIA_DIR.rglob("*.mp4"), key=lambda p: p.stat().st_mtime, reverse=True)
+    candidates = sorted(config.MEDIA_DIR.rglob("*.mp4"), key=lambda p: p.stat().st_mtime, reverse=True)
     for c in candidates:
         if "partial_movie_files" not in c.parts:
-            return str(c.relative_to(ROOT))
+            return str(c.relative_to(config.PROJECT_ROOT))
     return None
 
 
-def render_manim() -> dict:
-    if not SCENE_FILE.exists():
+def render_scene(scene_path: Path | None = None) -> dict:
+    if scene_path is None:
+        scene_path = config.GENERATED_SCENE_PATH
+    if not scene_path.exists():
         return {"ok": False, "error": "No generated_scene.py found", "stdout": "", "stderr": ""}
     try:
         result = subprocess.run(
-            ["uv", "run", "python", "-m", "manim", "-ql", str(SCENE_FILE), SCENE_CLASS],
+            ["uv", "run", "python", "-m", "manim", "-ql", str(scene_path), "GeneratedScene"],
             capture_output=True,
             text=True,
             timeout=180,
@@ -33,9 +29,9 @@ def render_manim() -> dict:
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": "Manim render timed out (180s)", "stdout": "", "stderr": ""}
     except FileNotFoundError:
-        return {"ok": False, "error": "uv or manim not found. Is the virtualenv active?", "stdout": "", "stderr": ""}
+        return {"ok": False, "error": "uv or manim not found", "stdout": "", "stderr": ""}
 
-    video_url = find_video()
+    video_url = find_latest_video()
     if result.returncode != 0:
         return {
             "ok": False,

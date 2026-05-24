@@ -9,11 +9,12 @@ User prompt
   → Router LLM (classifies intent, generates search queries, scene plan)
   → Local docs search (keyword match on docs_rag/manim/)
   → Codegen LLM (generates Manim Python code)
+  → Validator (blocking errors + layout warnings)
   → Manim renderer (runs manim -ql)
   → MP4 video
 ```
 
-Generated scenes include `fit_to_screen()` helper and layout warnings to keep animations in the viewport.
+Each module is independently testable from the CLI. See the debugging section below.
 
 ## Setup
 
@@ -62,6 +63,40 @@ Open `http://localhost:5173`.
 2. Click **Generate + Render** to run the full pipeline
 3. Or step through: Route → Search Docs → Generate Code → Render
 
+## Debugging order (CLI scripts)
+
+Each script tests a single module independently:
+
+1. **Test router:**
+   ```bash
+   uv run python scripts/test_router.py "Animate x + 5 = 12"
+   ```
+
+2. **Test docs search:**
+   ```bash
+   uv run python scripts/test_docs_search.py Text Transform NumberLine
+   ```
+
+3. **Test codegen:**
+   ```bash
+   uv run python scripts/test_codegen.py "Animate x + 5 = 12"
+   ```
+
+4. **Test validate:**
+   ```bash
+   uv run python scripts/test_validate.py output/generated_scene.py
+   ```
+
+5. **Test render:**
+   ```bash
+   uv run python scripts/test_render.py
+   ```
+
+6. **Test full pipeline:**
+   ```bash
+   uv run python scripts/test_pipeline.py "Animate x + 5 = 12"
+   ```
+
 ## Clean generated files
 
 ```bash
@@ -76,10 +111,10 @@ uv run python clean.py              # interactive mode with confirmation
 |--------|------|-------------|
 | GET | `/health` | Health check |
 | POST | `/route` | Router LLM → intent + search queries + scene plan |
-| POST | `/search-manim-docs` | Keyword search on `docs_rag/manim/` |
+| POST | `/search-docs` | Keyword search on `docs_rag/manim/` |
 | POST | `/generate-manim` | Route + search + generate Manim code |
 | POST | `/render-manim` | Render `output/generated_scene.py` to MP4 |
-| POST | `/generate-and-render-manim` | Full pipeline + auto-repair on failure |
+| POST | `/generate-and-render` | Full pipeline + auto-repair on failure |
 | GET | `/files` | List generated files |
 
 API responses include `warnings[]` for layout risks (e.g. large font sizes, big shifts, oversized NumberLines).
@@ -88,12 +123,23 @@ API responses include `warnings[]` for layout risks (e.g. large font sizes, big 
 
 ```
 ├── src/animgen/
-│   ├── api.py              # FastAPI server
+│   ├── __init__.py
+│   ├── config.py           # Paths, env vars, dirs
 │   ├── groq_clients.py     # OpenAI client per role
 │   ├── router.py           # Router LLM
-│   ├── manim_docs_search.py # Keyword docs search
-│   ├── manim_codegen.py    # Code generation + repair + layout validation
-│   └── manim_runner.py     # Manim CLI wrapper
+│   ├── docs_search.py      # Keyword docs search
+│   ├── codegen.py          # Code generation + repair
+│   ├── validator.py        # Code validation (blocking + warnings)
+│   ├── runner.py           # Manim CLI wrapper
+│   ├── pipeline.py         # Orchestration layer
+│   └── api.py              # FastAPI server (thin wrapper)
+├── scripts/
+│   ├── test_router.py
+│   ├── test_docs_search.py
+│   ├── test_codegen.py
+│   ├── test_validate.py
+│   ├── test_render.py
+│   └── test_pipeline.py
 ├── docs_rag/manim/         # Local Manim reference docs
 ├── output/                 # Generated .py files
 ├── media/                  # Rendered MP4 videos

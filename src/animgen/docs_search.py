@@ -1,21 +1,20 @@
 import re
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent.parent
-DOCS_DIR = ROOT / "docs_rag" / "manim"
+from . import config
 
 _FILE_PRIORITY = {
     "known_good_patterns.md": 0,
     "common_errors.md": 1,
+    "examples.md": 2,
 }
 
 
 def _find_files() -> list[Path]:
-    if not DOCS_DIR.exists():
+    if not config.DOCS_DIR.exists():
         return []
     return sorted(
-        p for p in DOCS_DIR.rglob("*") if p.is_file() and p.suffix in (".md", ".txt", ".py")
+        p for p in config.DOCS_DIR.rglob("*") if p.is_file() and p.suffix in (".md", ".txt", ".py")
     )
 
 
@@ -43,15 +42,14 @@ def _get_snippet_lines(text: str, query_words: set[str], context: int = 3) -> li
     return result
 
 
-def search_manim_docs(queries: list[str], limit_chars: int = 10000) -> list[dict]:
+def search_docs(queries: list[str], limit_chars: int = 10000) -> list[dict]:
     files = _find_files()
     files.sort(key=_priority)
-    query_set = set(queries)
     query_words = set()
     for q in queries:
         query_words.update(re.findall(r"[a-zA-Z_]\w*", q))
     if not query_words:
-        query_words = query_set
+        query_words = set(queries)
 
     results = []
     seen_snippets = set()
@@ -72,7 +70,7 @@ def search_manim_docs(queries: list[str], limit_chars: int = 10000) -> list[dict
         if key in seen_snippets:
             continue
         seen_snippets.add(key)
-        rel = str(path.relative_to(ROOT))
+        rel = str(path.relative_to(config.PROJECT_ROOT))
         results.append({"source": rel, "query": queries[0], "snippet": snippet})
         total += len(snippet)
 
@@ -80,14 +78,14 @@ def search_manim_docs(queries: list[str], limit_chars: int = 10000) -> list[dict
         for path in files[:2]:
             try:
                 text = path.read_text(encoding="utf-8")
-                results.append({"source": str(path.relative_to(ROOT)), "query": queries[0], "snippet": text[:1000]})
+                results.append({"source": str(path.relative_to(config.PROJECT_ROOT)), "query": queries[0], "snippet": text[:1000]})
             except Exception:
                 pass
 
     return results
 
 
-def format_docs_snippets(snippets: list[dict]) -> str:
+def format_snippets(snippets: list[dict]) -> str:
     parts = []
     for s in snippets:
         parts.append(f"--- {s['source']} ---\n{s['snippet']}")

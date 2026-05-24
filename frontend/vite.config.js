@@ -7,10 +7,10 @@ export default defineConfig({
     proxy: {
       '/health': 'http://localhost:8000',
       '/route': 'http://localhost:8000',
-      '/search-manim-docs': 'http://localhost:8000',
+      '/search-docs': 'http://localhost:8000',
       '/generate-manim': 'http://localhost:8000',
       '/render-manim': 'http://localhost:8000',
-      '/generate-and-render-manim': 'http://localhost:8000',
+      '/generate-and-render': 'http://localhost:8000',
       '/files': 'http://localhost:8000',
       '/output': 'http://localhost:8000',
       '/media': 'http://localhost:8000',
