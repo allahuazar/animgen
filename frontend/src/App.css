@@ -90,7 +90,8 @@
   font-size: 14px;
 }
 .render-actions button:disabled { opacity: 0.6; cursor: not-allowed; }
-.render-actions button:last-child { background: #6f42c1; border-color: #6f42c1; }
+.render-actions button:nth-child(2) { background: #6f42c1; border-color: #6f42c1; }
+.btn-ai { background: #198754 !important; border-color: #198754 !important; }
 
 .render-output { margin-top: 12px; }
 
@@ -124,3 +125,11 @@
 
 details { margin-top: 12px; }
 details summary { cursor: pointer; font-size: 13px; color: #0d6efd; }
+
+.ai-options { margin-top: 8px; border: 1px solid #dee2e6; border-radius: 6px; padding: 8px 12px; }
+.ai-options-body { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.ai-options-body label { font-size: 13px; color: #333; }
+.ai-prompt { width: 100%; font-family: inherit; font-size: 13px; padding: 8px; border: 1px solid #dee2e6; border-radius: 6px; resize: vertical; box-sizing: border-box; }
+.key-row { display: flex; gap: 6px; }
+.key-input { flex: 1; font-family: ui-monospace, monospace; font-size: 13px; padding: 6px 8px; border: 1px solid #dee2e6; border-radius: 6px; }
+.btn-small { padding: 4px 12px; font-size: 12px; border: 1px solid #aaa; background: #f8f9fa; border-radius: 4px; cursor: pointer; }

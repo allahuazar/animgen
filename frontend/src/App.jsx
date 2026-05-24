@@ -43,6 +43,9 @@ function App() {
   const [renderResult, setRenderResult] = useState(null)
   const [fileList, setFileList] = useState(null)
   const [tab, setTab] = useState('upload')
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [groqKey, setGroqKey] = useState('')
+  const [showGroqKey, setShowGroqKey] = useState(false)
 
   useEffect(() => {
     fetch('/health').then(r => r.json()).then(d => setHealth(d.status)).catch(() => setHealth('error'))
@@ -126,6 +129,24 @@ function App() {
     if (data.ok) fetchFiles()
   }, [lessonJson, validateLesson])
 
+  const renderAiManim = useCallback(async () => {
+    const parsed = validateLesson()
+    if (!parsed) return
+    if (!groqKey && !window._groqKeyWarned) {
+      window._groqKeyWarned = true
+      if (!confirm('No Groq API key entered. Set GROQ_API_KEY env var on server or enter a key below.')) return
+    }
+    setRendering('ai-manim')
+    setRenderResult(null)
+    const body = { ...parsed, prompt: aiPrompt }
+    if (groqKey) body.groq_key = groqKey
+    const res = await fetch('/render/ai-manim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const data = await res.json()
+    setRenderResult(data)
+    setRendering(null)
+    if (data.ok) fetchFiles()
+  }, [lessonJson, validateLesson, aiPrompt, groqKey])
+
   const outputFiles = fileList?.output || []
   const mediaFiles = fileList?.media || []
   const typstPngs = outputFiles.filter(f => f.name.endsWith('.png'))
@@ -199,7 +220,37 @@ function App() {
             <button onClick={renderManim} disabled={rendering !== null}>
               {rendering === 'manim' ? 'Rendering Manim…' : 'Render Manim'}
             </button>
+            <button className="btn-ai" onClick={renderAiManim} disabled={rendering !== null}>
+              {rendering === 'ai-manim' ? 'Generating…' : 'AI Manim'}
+            </button>
           </div>
+
+          <details className="ai-options">
+            <summary>AI Manim options</summary>
+            <div className="ai-options-body">
+              <label>Custom prompt (optional):</label>
+              <textarea
+                className="ai-prompt"
+                rows={3}
+                value={aiPrompt}
+                onChange={e => setAiPrompt(e.target.value)}
+                placeholder="e.g. Use a dark background with colorful animated diagrams"
+              />
+              <label>Groq API key <span className="hint">(leave blank to use server env var)</span>:</label>
+              <div className="key-row">
+                <input
+                  type={showGroqKey ? 'text' : 'password'}
+                  className="key-input"
+                  value={groqKey}
+                  onChange={e => setGroqKey(e.target.value)}
+                  placeholder="gsk_..."
+                />
+                <button className="btn-small" onClick={() => setShowGroqKey(!showGroqKey)}>
+                  {showGroqKey ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            </div>
+          </details>
 
           {renderResult && !renderResult.ok && <p className="error">{renderResult.error}</p>}
 
@@ -236,6 +287,13 @@ function App() {
                 <details>
                   <summary>Typst Source</summary>
                   <pre className="code-block">{renderResult.typst_source}</pre>
+                </details>
+              )}
+
+              {renderResult.scene_source && (
+                <details>
+                  <summary>AI-Generated Scene ({renderResult.scene_class || '?'})</summary>
+                  <pre className="code-block">{renderResult.scene_source}</pre>
                 </details>
               )}
 

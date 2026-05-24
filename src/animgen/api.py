@@ -6,10 +6,13 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
+import os
+
 from .models import Lesson
 from .pdf_to_llm import extract_markdown
 from .typst_renderer import render_lesson as render_typst
 from .manim_renderer import render_lesson as render_manim
+from .groq_manim import render_lesson as render_ai_manim
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
@@ -147,6 +150,42 @@ async def render_manim_endpoint(data: dict):
 
     return _ok({
         "files": result.get("files", []),
+        "stdout": result.get("stdout", ""),
+        "stderr": result.get("stderr", ""),
+        "returncode": result.get("returncode", -1),
+    })
+
+
+@app.post("/render/ai-manim")
+async def render_ai_manim_endpoint(data: dict):
+    try:
+        lesson = Lesson(**data)
+    except ValidationError as e:
+        return _err(f"Invalid lesson JSON: {e}")
+
+    lesson_dict = lesson.model_dump()
+    api_key = data.get("groq_key") or os.environ.get("GROQ_API_KEY", "")
+    if not api_key:
+        return _err("GROQ_API_KEY not set — pass groq_key in body or set env var")
+
+    prompt = data.get("prompt", "")
+    model = data.get("model", "llama-3.3-70b-versatile")
+
+    try:
+        result = render_ai_manim(
+            lesson_dict,
+            api_key=api_key,
+            prompt=prompt,
+            model=model,
+            out_dir=OUTPUT_DIR,
+        )
+    except Exception as e:
+        return _err(f"AI Manim render failed: {e}")
+
+    return _ok({
+        "files": result.get("files", []),
+        "scene_source": result.get("scene_source", ""),
+        "scene_class": result.get("scene_class", ""),
         "stdout": result.get("stdout", ""),
         "stderr": result.get("stderr", ""),
         "returncode": result.get("returncode", -1),

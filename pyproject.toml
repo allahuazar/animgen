@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.115.0",
+    "groq>=0.20.0",
     "manim>=0.20.1",
     "pymupdf4llm>=1.27.2.3",
     "pydantic>=2.0",
