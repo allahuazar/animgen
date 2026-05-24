@@ -13,6 +13,8 @@ User prompt
   → MP4 video
 ```
 
+Generated scenes include `fit_to_screen()` helper and layout warnings to keep animations in the viewport.
+
 ## Setup
 
 ```bash
@@ -60,6 +62,14 @@ Open `http://localhost:5173`.
 2. Click **Generate + Render** to run the full pipeline
 3. Or step through: Route → Search Docs → Generate Code → Render
 
+## Clean generated files
+
+```bash
+uv run python clean.py --dry-run    # preview what will be deleted
+uv run python clean.py --yes        # delete without confirmation
+uv run python clean.py              # interactive mode with confirmation
+```
+
 ## API
 
 | Method | Path | Description |
@@ -72,6 +82,8 @@ Open `http://localhost:5173`.
 | POST | `/generate-and-render-manim` | Full pipeline + auto-repair on failure |
 | GET | `/files` | List generated files |
 
+API responses include `warnings[]` for layout risks (e.g. large font sizes, big shifts, oversized NumberLines).
+
 ## Project structure
 
 ```
@@ -80,15 +92,22 @@ Open `http://localhost:5173`.
 │   ├── groq_clients.py     # OpenAI client per role
 │   ├── router.py           # Router LLM
 │   ├── manim_docs_search.py # Keyword docs search
-│   ├── manim_codegen.py    # Code generation + repair
+│   ├── manim_codegen.py    # Code generation + repair + layout validation
 │   └── manim_runner.py     # Manim CLI wrapper
 ├── docs_rag/manim/         # Local Manim reference docs
 ├── output/                 # Generated .py files
 ├── media/                  # Rendered MP4 videos
 ├── frontend/               # Vite React SPA
+├── clean.py                # Cleanup script
 ├── pyproject.toml
 └── .env.example
 ```
+
+## Troubleshooting
+
+- **Video goes out of frame** — regenerate or repair; layout warnings in the UI will show risky code (large font sizes, big shifts, oversized elements)
+- **Render fails** — the repair LLM will attempt to fix the code automatically
+- **MathTex errors** — prefer Text over MathTex for MVP (avoids LaTeX dependency)
 
 ## Limitations
 

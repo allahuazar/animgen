@@ -20,7 +20,33 @@ Rules:
 - Do not use external files, images, audio, network, or user input.
 - Do not use unsupported plugins.
 - Keep code simple and reliable.
-- Make the animation clear for a student."""
+- Make the animation clear for a student.
+
+Viewport-safe layout rules (Manim default frame: x: -6 to 6, y: -3.2 to 3.2):
+- Use one title at the top with .to_edge(UP, buff=0.5)
+- Use one main VGroup centered with .move_to(ORIGIN)
+- Prefer VGroup(...).arrange(...) over manual coordinates
+- After arranging, use .move_to(ORIGIN)
+- Keep title font size between 36 and 44
+- Keep equation font size between 32 and 40
+- Keep explanation font size between 22 and 30
+- Break long text into multiple Text objects
+- NumberLine length should be 8-10, never above 12
+- Axes should use reasonable x_length/y_length
+
+Required: include this helper function inside construct():
+def fit_to_screen(mobject):
+    if mobject.width > 11:
+        mobject.scale_to_fit_width(11)
+    if mobject.height > 5.8:
+        mobject.scale_to_fit_height(5.8)
+    return mobject
+
+Call fit_to_screen() on large VGroups before animating them.
+Do not place important objects outside the frame.
+Avoid large manual shifts — never use shifts greater than 4 units.
+Avoid manual coordinates unless necessary for positioning.
+Prefer ReplacementTransform(old, new) over Transform(old.copy(), new)."""
 
 REJECTED_PATTERNS = [
     r"\bimport\s+os\b",
@@ -41,6 +67,7 @@ REJECTED_PATTERNS = [
 REQUIRED_PATTERNS = [
     r"from\s+manim\s+import\s+\*",
     r"class\s+GeneratedScene\s*\(\s*Scene\s*\)\s*:",
+    r"def\s+fit_to_screen\s*\(",
 ]
 
 
@@ -59,6 +86,35 @@ def validate_manim_code(code: str) -> None:
     for pattern in REQUIRED_PATTERNS:
         if not re.search(pattern, code):
             raise ValueError(f"Generated Manim code missing required pattern: {pattern}")
+
+
+def check_layout_risks(code: str) -> list[str]:
+    warnings = []
+    for m in re.finditer(r'font_size\s*=\s*(\d+)', code):
+        val = int(m.group(1))
+        if val > 56:
+            warnings.append(f"font_size {val} > 56 may go out of viewport")
+    for m in re.finditer(r'NumberLine\([^)]*?length\s*=\s*(\d+(?:\.\d+)?)', code):
+        val = float(m.group(1))
+        if val > 12:
+            warnings.append(f"NumberLine length {val} > 12 may go out of viewport")
+    for m in re.finditer(r'shift\(\s*(RIGHT|LEFT)\s*\*\s*(\d+(?:\.\d+)?)', code):
+        val = float(m.group(2))
+        if val >= 7:
+            warnings.append(f"shift({m.group(1)} * {val}) >= 7 may go out of viewport")
+    for m in re.finditer(r'shift\(\s*(UP|DOWN)\s*\*\s*(\d+(?:\.\d+)?)', code):
+        val = float(m.group(2))
+        if val >= 4:
+            warnings.append(f"shift({m.group(1)} * {val}) >= 4 may go out of viewport")
+    for m in re.finditer(r'x_length\s*=\s*(\d+(?:\.\d+)?)', code):
+        val = float(m.group(1))
+        if val > 12:
+            warnings.append(f"x_length {val} > 12 may go out of viewport")
+    for m in re.finditer(r'y_length\s*=\s*(\d+(?:\.\d+)?)', code):
+        val = float(m.group(1))
+        if val > 8:
+            warnings.append(f"y_length {val} > 8 may go out of viewport")
+    return warnings
 
 
 def generate_manim_code(prompt: str, router_result: dict, docs_snippets: list[dict]) -> str:
@@ -118,6 +174,14 @@ Relevant docs snippets:
 {docs_text}
 
 Fix the code so it compiles and renders successfully.
+If the content goes out of the viewport:
+- Center content with .move_to(ORIGIN)
+- Reduce font sizes
+- Use VGroup arrange
+- Add and call fit_to_screen()
+- Avoid large shifts (max 4 units)
+- Keep all important objects in the safe frame (x: -6 to 6, y: -3.2 to 3.2)
+- Prefer Text over MathTex
 Output Python code only. No markdown fences. No explanation.
 """
     try:

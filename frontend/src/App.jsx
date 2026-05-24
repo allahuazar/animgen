@@ -8,6 +8,7 @@ function App() {
   const [routerResult, setRouterResult] = useState(null)
   const [snippets, setSnippets] = useState(null)
   const [generatedCode, setGeneratedCode] = useState(null)
+  const [warnings, setWarnings] = useState(null)
   const [renderResult, setRenderResult] = useState(null)
   const [videoUrl, setVideoUrl] = useState(null)
   const [repaired, setRepaired] = useState(null)
@@ -37,11 +38,11 @@ function App() {
   }
 
   async function doGenerate() {
-    setLoading('generate'); setError(null); setGeneratedCode(null); setRouterResult(null); setSnippets(null)
+    setLoading('generate'); setError(null); setGeneratedCode(null); setWarnings(null); setRouterResult(null); setSnippets(null)
     try {
       const r = await fetch('/generate-manim', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({prompt}) })
       const d = await r.json()
-      if (d.ok) { setRouterResult(d.router); setSnippets({snippets: d.snippets, count: d.snippets.length}); setGeneratedCode(d.code) }
+      if (d.ok) { setRouterResult(d.router); setSnippets({snippets: d.snippets, count: d.snippets.length}); setGeneratedCode(d.code); setWarnings(d.warnings) }
       else setError(d.error)
     } catch { setError('Generate request failed') }
     setLoading(null)
@@ -59,13 +60,14 @@ function App() {
   }
 
   async function doFull() {
-    setLoading('full'); setError(null); setRouterResult(null); setSnippets(null); setGeneratedCode(null); setRenderResult(null); setVideoUrl(null); setRepaired(null)
+    setLoading('full'); setError(null); setRouterResult(null); setSnippets(null); setGeneratedCode(null); setWarnings(null); setRenderResult(null); setVideoUrl(null); setRepaired(null)
     try {
       const r = await fetch('/generate-and-render-manim', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({prompt}) })
       const d = await r.json()
       if (d.ok) {
         setRouterResult(d.router)
         setGeneratedCode(d.code)
+        setWarnings(d.warnings)
         setRenderResult(d.render)
         setVideoUrl(d.video_url)
         setRepaired(d.repaired)
@@ -117,6 +119,13 @@ function App() {
         <section className="card">
           <h2 className="card-title">Generated Code</h2>
           <textarea className="input input--code" rows={12} value={generatedCode} readOnly />
+        </section>
+      )}
+
+      {warnings && warnings.length > 0 && (
+        <section className="card card--warning">
+          <h2 className="card-title">Layout Warnings</h2>
+          {warnings.map((w, i) => <p key={i} className="warning-item">{w}</p>)}
         </section>
       )}
 

@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .manim_codegen import generate_manim_code, repair_manim_code, validate_manim_code
+from .manim_codegen import check_layout_risks, generate_manim_code, repair_manim_code, validate_manim_code
 from .manim_docs_search import search_manim_docs
 from .manim_runner import render_manim, SCENE_FILE
 from .router import route_prompt
@@ -33,8 +33,8 @@ def _ok(data: dict, status: int = 200) -> JSONResponse:
     return JSONResponse(content={"ok": True, **data}, status_code=status)
 
 
-def _err(msg: str, status: int = 400) -> JSONResponse:
-    return JSONResponse(content={"ok": False, "error": msg}, status_code=status)
+def _err(msg: str, status: int = 400, details: list | None = None) -> JSONResponse:
+    return JSONResponse(content={"ok": False, "error": msg, "warnings": [], "details": details or []}, status_code=status)
 
 
 @app.get("/health")
@@ -63,13 +63,15 @@ def generate_manim(req: PromptRequest):
     try:
         code = generate_manim_code(req.prompt, router_result, snippets)
     except ValueError as e:
-        return _err(f"Code generation validation failed: {e}")
+        return _err("Unsafe generated code rejected", details=[str(e)])
+    warnings = check_layout_risks(code)
     OUTPUT_DIR.mkdir(exist_ok=True)
     SCENE_FILE.write_text(code, encoding="utf-8")
     return _ok({
         "router": router_result,
         "snippets": snippets,
         "code": code,
+        "warnings": warnings,
     })
 
 
@@ -91,7 +93,7 @@ def generate_and_render(req: PromptRequest):
     try:
         code = generate_manim_code(req.prompt, router_result, snippets)
     except ValueError as e:
-        return _err(f"Code generation failed: {e}")
+        return _err("Unsafe generated code rejected", details=[str(e)])
 
     OUTPUT_DIR.mkdir(exist_ok=True)
     SCENE_FILE.write_text(code, encoding="utf-8")
@@ -109,14 +111,17 @@ def generate_and_render(req: PromptRequest):
             render_result = render_manim()
             repaired = True
         except ValueError as e:
-            return _err(f"Generation succeeded but render failed and repair failed: {e}")
+            return _err("Generation succeeded but render failed and repair failed", details=[str(e)])
+
+    warnings = check_layout_risks(code)
 
     return _ok({
         "router": router_result,
         "code": code,
+        "warnings": warnings,
+        "video_url": render_result.get("video_url"),
         "render": render_result,
         "repaired": repaired,
-        "video_url": render_result.get("video_url"),
     })
 
 

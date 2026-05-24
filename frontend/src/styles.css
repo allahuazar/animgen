@@ -96,3 +96,14 @@ body {
 
 details { margin-top: 8px; }
 details summary { cursor: pointer; font-size: 13px; color: #58a6ff; }
+
+.card--warning {
+  border-color: #d29922;
+  background: #1c1a0e;
+}
+.warning-item {
+  color: #d29922;
+  font-size: 13px;
+  padding: 4px 0;
+  font-family: ui-monospace, Consolas, monospace;
+}
