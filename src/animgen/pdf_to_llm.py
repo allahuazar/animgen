@@ -1,17 +1,23 @@
 from pathlib import Path
 import pymupdf4llm
 
-PDF_PATH = Path("input/class8_math2.pdf")
-OUT_PATH = Path("parsed/class8_math2.md")
 
-OUT_PATH.parent.mkdir(exist_ok=True)
+def extract_markdown(pdf_path: str | Path) -> str:
+    return pymupdf4llm.to_markdown(
+        str(pdf_path),
+        header=False,
+        footer=False,
+    )
 
-markdown = pymupdf4llm.to_markdown(
-    str(PDF_PATH),
-    header=False,
-    footer=False,
-)
 
-OUT_PATH.write_text(markdown, encoding="utf-8")
+def main() -> None:
+    pdf = Path("input/class8_math2.pdf")
+    out = Path("parsed/class8_math2.md")
+    out.parent.mkdir(exist_ok=True)
+    md = extract_markdown(pdf)
+    out.write_text(md, encoding="utf-8")
+    print(f"Saved: {out}")
 
-print(f"Saved: {OUT_PATH}")
+
+if __name__ == "__main__":
+    main()

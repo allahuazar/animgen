@@ -1,109 +1,100 @@
 # Animgen
 
-Minimal Python wrappers for turning textbook content into lesson assets.
+Minimal FastAPI + React frontend for turning textbook content into lesson assets.
 
-## What this does
-
-Animgen is an experimental pipeline for educational content generation:
+## Architecture
 
 ```text
 PDF textbook
-→ Markdown / RAG chunks
-→ Typst worksheet/pages
-→ Manim animation
-````
-
-## Modules
-
-```text
-src/animgen/pdf_to_llm.py      # Convert PDF to Markdown
-src/animgen/typst_renderer.py  # Render lesson pages with Typst
-src/animgen/manim_renderer.py  # Render lesson animations with Manim
+  → PyMuPDF4LLM (markdown extraction)
+    → lesson JSON (structured glue)
+      → Typst (worksheet PNG)
+      → Manim (animation video)
 ```
 
-## Setup
+The lesson JSON is the shared data structure — edit it once in the UI, render both formats.
+
+## Quick start
 
 ```bash
 uv sync
 ```
 
-If dependencies are not added yet:
-
-```bash
-uv add pymupdf4llm typst manim
-```
-
-Manim may also need system packages:
+Install Manim system deps (Arch):
 
 ```bash
 sudo pacman -S ffmpeg cairo pango texlive-bin texlive-basic texlive-latex texlive-latexrecommended texlive-fontsrecommended texlive-latexextra dvisvgm
 ```
 
-## Usage
-
-### 1. Convert PDF to Markdown
-
-Put your PDF inside:
-
-```text
-input/
-```
-
-Then run:
+### Backend
 
 ```bash
-uv run python src/animgen/pdf_to_llm.py
+uv run uvicorn src.animgen.api:app --reload --port 8000
 ```
 
-Output:
-
-```text
-parsed/
-```
-
-### 2. Render Typst lesson page
+### Frontend (dev mode)
 
 ```bash
-uv run python src/animgen/typst_renderer.py
+cd frontend && npm run dev
 ```
 
-Output:
+Open `http://localhost:5173`.
 
-```text
-output/
-```
-
-### 3. Render Manim animation
+### Production (single server)
 
 ```bash
-uv run python -m manim -pql src/animgen/manim_renderer.py PhotosynthesisDemo
+cd frontend && npm run build
+uv run uvicorn src.animgen.api:app --port 8000
 ```
 
-Output:
+Open `http://localhost:8000`.
 
-```text
-media/videos/
-```
+## API
+
+| Method | Path | What it does |
+|--------|------|-------------|
+| GET | `/health` | Health check |
+| POST | `/upload-pdf` | Upload PDF → extract markdown |
+| GET | `/markdown` | List / retrieve markdown files |
+| POST | `/lesson-json` | Validate and save lesson JSON |
+| POST | `/render/typst` | Lesson JSON → Typst source + PNG |
+| POST | `/render/manim` | Lesson JSON → Manim scene + MP4 |
+| GET | `/files` | List all generated files |
 
 ## Project structure
 
 ```text
-animgen/
 ├── src/animgen/
-│   ├── pdf_to_llm.py
-│   ├── typst_renderer.py
-│   └── manim_renderer.py
-├── input/
-├── parsed/
-├── rag/
-├── output/
+│   ├── api.py              # FastAPI server
+│   ├── models.py           # Pydantic Lesson model
+│   ├── pdf_to_llm.py       # PDF → markdown (PyMuPDF4LLM)
+│   ├── typst_renderer.py   # Lesson → Typst PNG
+│   └── manim_renderer.py   # Lesson → Manim video
+├── frontend/               # Vite React SPA
+│   ├── src/App.jsx         # Main UI component
+│   └── vite.config.js      # Dev proxy → :8000
+├── input/                  # Uploaded PDFs
+├── parsed/                 # Extracted markdown + lesson JSON
+├── output/                 # Typst PNGs, generated scene files
+├── media/                  # Manim videos
 ├── pyproject.toml
 └── README.md
 ```
 
+## How it works
+
+1. **Upload a PDF** — the server extracts markdown via PyMuPDF4LLM and saves it to `parsed/`.
+2. **Preview the markdown** — select any parsed file in the UI.
+3. **Edit the lesson JSON** — the default Photosynthesis example is pre-loaded. Tweak titles, key points, formulas, and quiz questions.
+4. **Render Typst** — the server builds a Typst document from the lesson JSON and compiles it to PNG (via `typst-py`). The result appears inline.
+5. **Render Manim** — the server generates a Manim Python scene from the lesson JSON and runs the CLI to produce an MP4. The video appears inline.
+6. **Browse files** — the Files tab lists everything in `input/`, `parsed/`, `output/`, and `media/` with direct links.
+
+All generation happens server-side. The frontend only sends/receives JSON.
+
 ## Notes
 
-Generated files are ignored by git:
+Generated files are git-ignored:
 
 ```text
 input/
@@ -111,10 +102,7 @@ parsed/
 rag/
 output/
 media/
+typst-output/
 ```
 
 Keep textbooks and generated content out of the repository unless you have permission to publish them.
-
-## Goal
-
-Build a simple local pipeline for creating educational worksheets, previews, and animations from textbook content.

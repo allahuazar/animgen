@@ -2,43 +2,9 @@ from pathlib import Path
 import typst
 
 OUT_DIR = Path("typst-output")
-OUT_DIR.mkdir(exist_ok=True)
-
-LESSON = {
-    "title": "Photosynthesis",
-    "subject": "Biology",
-    "grade": "Class 8",
-    "summary": "Photosynthesis is the process by which green plants make their own food using sunlight, carbon dioxide, and water.",
-    "key_points": [
-        "Plants use chlorophyll to absorb sunlight.",
-        "Carbon dioxide enters the leaf through stomata.",
-        "Water is absorbed by the roots and transported to the leaves.",
-        "The plant produces glucose as food.",
-        "Oxygen is released as a by-product.",
-    ],
-    "formula": "6CO₂ + 6H₂O → C₆H₁₂O₆ + 6O₂",
-    "quiz": [
-        {
-            "question": "What is the green pigment in leaves called?",
-            "answer": "Chlorophyll",
-        },
-        {
-            "question": "Which gas is released during photosynthesis?",
-            "answer": "Oxygen",
-        },
-        {
-            "question": "What food does the plant produce?",
-            "answer": "Glucose",
-        },
-    ],
-}
 
 
 def escape_typst(text: str) -> str:
-    """
-    Escape text that will be inserted into Typst.
-    This prevents symbols like #, $, and quotes from breaking the document.
-    """
     return (
         str(text)
         .replace("\\", "\\\\")
@@ -54,11 +20,9 @@ def make_bullets(items: list[str]) -> str:
 
 def make_quiz(items: list[dict[str, str]]) -> str:
     output = []
-
     for index, item in enumerate(items, start=1):
         question = escape_typst(item["question"])
         answer = escape_typst(item["answer"])
-
         output.append(
             f"""
 == Question {index}
@@ -74,7 +38,6 @@ def make_quiz(items: list[dict[str, str]]) -> str:
 ]
 """
         )
-
     return "\n".join(output)
 
 
@@ -212,26 +175,54 @@ def build_typst_source(lesson: dict) -> bytes:
     return source.encode("utf-8")
 
 
-def compile_png(source: bytes) -> None:
-    typst.compile(
-        source,
-        output=OUT_DIR / "lesson-page-{n}.png",
-        format="png",
-        ppi=144.0,
-    )
+def compile_png(source: bytes, output: str | Path | None = None) -> Path:
+    if output is None:
+        OUT_DIR.mkdir(exist_ok=True)
+        output = OUT_DIR / "lesson-page-{n}.png"
+    typst.compile(source, output=str(output), format="png", ppi=144.0)
+    return Path(str(output).replace("{n}", "1"))
+
+
+def render_lesson(lesson: dict, out_dir: str | Path = "output") -> dict:
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    source = build_typst_source(lesson)
+    typ_path = out_dir / "lesson.typ"
+    typ_path.write_bytes(source)
+
+    png_path = compile_png(source, out_dir / "lesson-page-{n}.png")
+
+    return {
+        "typst_source": source.decode("utf-8"),
+        "files": [str(typ_path), str(png_path)],
+    }
 
 
 def main() -> None:
-    source = build_typst_source(LESSON)
-
-    source_file = OUT_DIR / "lesson.typ"
-    source_file.write_bytes(source)
-
-    compile_png(source)
-
+    LESSON = {
+        "title": "Photosynthesis",
+        "subject": "Biology",
+        "grade": "Class 8",
+        "summary": "Photosynthesis is the process by which green plants make their own food using sunlight, carbon dioxide, and water.",
+        "key_points": [
+            "Plants use chlorophyll to absorb sunlight.",
+            "Carbon dioxide enters the leaf through stomata.",
+            "Water is absorbed by the roots and transported to the leaves.",
+            "The plant produces glucose as food.",
+            "Oxygen is released as a by-product.",
+        ],
+        "formula": "6CO₂ + 6H₂O → C₆H₁₂O₆ + 6O₂",
+        "quiz": [
+            {"question": "What is the green pigment in leaves called?", "answer": "Chlorophyll"},
+            {"question": "Which gas is released during photosynthesis?", "answer": "Oxygen"},
+            {"question": "What food does the plant produce?", "answer": "Glucose"},
+        ],
+    }
+    result = render_lesson(LESSON)
     print("Done.")
-    print(f"Typst source: {source_file}")
-    print(f"PNG output:   {OUT_DIR / 'lesson-page-1.png'}")
+    for f in result["files"]:
+        print(f"  {f}")
 
 
 if __name__ == "__main__":

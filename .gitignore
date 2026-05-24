@@ -17,6 +17,9 @@ rag/*
 input/*
 !input/.gitkeep
 
+# Frontend build
+frontend/dist/
+
 # Typst generated
 typst-output/
 
